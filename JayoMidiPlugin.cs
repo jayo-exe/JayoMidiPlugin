@@ -17,6 +17,10 @@ namespace JayoMidiPlugin
         public GameObject windowPrefab;
 
         private GameObject window;
+        private MainThreadDispatcher mainThread;
+        private VNyanHelper _VNyanHelper;
+        private VNyanTriggerDispatcher triggerDispatcher;
+        private MidiManager midiManager;
         private List<string> inputDeviceNames;
         private List<string> outputDeviceNames;
 
@@ -59,14 +63,26 @@ namespace JayoMidiPlugin
         {
             
             Debug.Log($"MIDI Plugin is Awake!");
-
-            Debug.Log($"Beginning Plugin Setup");
-            window = VNyanHelper.pluginSetup(this, "MIDI", windowPrefab);
+            _VNyanHelper = new VNyanHelper();
 
             Debug.Log($"Loading Settings");
             // Load settings
             loadPluginSettings();
 
+            Debug.Log($"Beginning Plugin Setup");
+            
+            mainThread = gameObject.AddComponent<MainThreadDispatcher>();
+            triggerDispatcher = gameObject.AddComponent<VNyanTriggerDispatcher>();
+            midiManager = gameObject.AddComponent<MidiManager>();
+
+            try
+            {
+                window = _VNyanHelper.pluginSetup(this, "Jayo's MIDI Plugin", windowPrefab);
+            } catch(Exception e)
+            {
+                Debug.Log(e.ToString());
+            }
+            
             // Hide the window by default
             if (window != null)
             {
@@ -107,20 +123,20 @@ namespace JayoMidiPlugin
                 {
                     Debug.Log($"Couldn't initialize MIDI Input List: {e.Message}");
                     setStatusTitle("Couldn't initialize MIDI Input List");
-                    setStatusMessage($"{e.Message}");
-                    VNyanHelper.setVNyanParameterString("MidiError", e.ToString());
+                    setStatusMessage($"initError: {e.Message}\n{e.StackTrace}");
+                    Debug.Log(e.ToString());
                 }
 
                 try
                 {
-                    
                     connectToMidiDevice();
                 }
                 catch (Exception e)
                 {
                     Debug.Log($"Couldn't initialize MIDI Input Connection: {e.Message}");
                     setStatusTitle("Couldn't initialize MIDI Input Connection");
-                    setStatusMessage($"{e.Message}");
+                    setStatusMessage($"connError: {e.Message}\n{e.StackTrace}");
+                    GUIUtility.systemCopyBuffer = e.StackTrace;
                 }
             }
         }
@@ -148,25 +164,21 @@ namespace JayoMidiPlugin
 
         private List<Dropdown.OptionData> buildInputOptionsList()
         {
-            //statusMessage = "Checking for Input Devices...";
             Debug.Log($"Checking for Input Devices...");
             List<InputDevice> inputDevices = listInputDevices();
             List<Dropdown.OptionData> optionsList = new List<Dropdown.OptionData>();
-            //statusMessage = "Clearing list...";
-            Debug.Log($"Clearing list...");
+
             inputDeviceNames = new List<string>();
-            //statusMessage = "Iterating Input Devices...";
-            Debug.Log($"Iterating Input Devices...");
+            
+            inputDeviceNames.Add("<None>");
+            optionsList.Add(new Dropdown.OptionData("<None>"));
+
             foreach (InputDevice device in inputDevices)
             {
                 inputDeviceNames.Add(device.Name);
-                if(midiInputDevice == null)
-                {
-                    midiInputDevice = device.Name;
-                    savePluginSettings();
-                }
                 optionsList.Add(new Dropdown.OptionData(device.Name));
             }
+
             return optionsList;
         }
 
@@ -176,27 +188,34 @@ namespace JayoMidiPlugin
             List<Dropdown.OptionData> optionsList = new List<Dropdown.OptionData>();
 
             outputDeviceNames = new List<string>();
+            
+            outputDeviceNames.Add("<None>");
+            optionsList.Add(new Dropdown.OptionData("<None>"));
+
             foreach (OutputDevice device in outputDevices)
             {
                 outputDeviceNames.Add(device.Name);
                 optionsList.Add(new Dropdown.OptionData(device.Name));
             }
+
             return optionsList;
         }
 
-        /// <summary>
-        /// Load plugin settings
-        /// </summary>
+
         private void loadPluginSettings()
         {
             // Get settings in dictionary
-            Dictionary<string, string> settings = VNyanHelper.loadPluginSettingsData("JayoMidiPlugin.cfg");
+            Dictionary<string, string> settings = _VNyanHelper.loadPluginSettingsData("JayoMidiPlugin.cfg");
             if (settings != null)
             {
                 // Read string value
                 settings.TryGetValue("MidiInputDevice", out midiInputDevice);
                 settings.TryGetValue("MidiOutputDevice", out midiOutputDevice);
 
+            } else
+            {
+                midiInputDevice = "<None>";
+                midiOutputDevice = "<None>";
             }
         }
 
@@ -215,12 +234,13 @@ namespace JayoMidiPlugin
             settings["MidiInputDevice"] = midiInputDevice;
             settings["MidiOutputDevice"] = midiOutputDevice;
 
-            VNyanHelper.savePluginSettingsData("JayoMidiPlugin.cfg", settings);
+            _VNyanHelper.savePluginSettingsData("JayoMidiPlugin.cfg", settings);
         }
 
         public void pluginButtonClicked()
         {
             // Flip the visibility of the window when plugin window button is clicked
+            Debug.Log("plugin button clicked");
             if (window != null)
             {
                 window.SetActive(!window.activeSelf);
@@ -260,6 +280,12 @@ namespace JayoMidiPlugin
         public void connectToMidiDevice()
         {
             Debug.Log($"Initializing MIDI Connection");
+            if(midiInputDevice == "<None>" || midiInputDevice == "" || midiInputDevice == null)
+            {
+                setStatusTitle("Select a MIDI Device");
+                return;
+            }
+
             setStatusTitle("Initializing MIDI Connection");
             if (GetComponent<MidiManager>().initMidi(midiInputDevice))
             {
@@ -267,6 +293,7 @@ namespace JayoMidiPlugin
                 window.transform.Find("Panel/StatusControls/DisconnectButton").gameObject.SetActive(true);
                 window.transform.Find("Panel/Midi Source/Source Dropdown").GetComponent<Dropdown>().interactable = false;
                 setStatusTitle("Midi Connected and Listening!");
+                setStatusMessage("");
             } else
             {
                 setStatusTitle("Unable to connect to MIDI Device");
@@ -291,7 +318,6 @@ namespace JayoMidiPlugin
 
         public void setLastNoteOnTrigger(string triggerName, SevenBitNumber value)
         {
-            Debug.Log("Flag 3A");
             lastNoteOnTrigger = triggerName;
             lastNoteOnValue = value;
             shouldUpdateTriggers = true;
@@ -304,7 +330,6 @@ namespace JayoMidiPlugin
 
         public void setLastNoteOffTrigger(string triggerName, SevenBitNumber value)
         {
-            Debug.Log("Flag 3B");
             lastNoteOffTrigger = triggerName;
             lastNoteOffValue = value;
             shouldUpdateTriggers = true;
@@ -317,7 +342,6 @@ namespace JayoMidiPlugin
 
         public void setLastControlChangeTrigger(string triggerName, SevenBitNumber value)
         {
-            Debug.Log("Flag 3C");
             lastControlChangeTrigger = triggerName;
             lastControlChangeValue = value;
             shouldUpdateTriggers = true;

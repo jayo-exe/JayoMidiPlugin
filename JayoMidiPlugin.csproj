@@ -10,9 +10,6 @@
     <Reference Include="Assembly-CSharp">
       <HintPath>E:\vNyan\VNyan_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Melanchall.DryWetMidi">
-      <HintPath>..\..\..\MidiPlugin\Assets\JayoMidiPlugin\Plugins\Melanchall.DryWetMidi.dll</HintPath>
-    </Reference>
     <Reference Include="UnityEditor">
       <HintPath>E:\Unity\Editor\2020.3.40f1\Editor\Data\Managed\UnityEditor.dll</HintPath>
     </Reference>
@@ -38,5 +35,17 @@
       <HintPath>E:\VNyan\VNyan_Data\Managed\VNyanInterface.dll</HintPath>
     </Reference>
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="dist\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Melanchall.DryWetMidi" Version="7.0.2" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy &quot;$(TargetDir)JayoMidiPlugin.dll&quot; &quot;$(SolutionDir)..\..\..\MidiPlugin\Assets\JayoMidiPlugin\Plugins&quot; /Y" />
+  </Target>
 
 </Project>
