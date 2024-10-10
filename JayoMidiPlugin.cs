@@ -9,6 +9,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using VNyanInterface;
+using JayoMidiPlugin.VNyanPluginHelper;
 
 namespace JayoMidiPlugin
 {
@@ -19,7 +20,7 @@ namespace JayoMidiPlugin
         private GameObject window;
         private MainThreadDispatcher mainThread;
         private VNyanHelper _VNyanHelper;
-        private VNyanTriggerDispatcher triggerDispatcher;
+        private VNyanPluginUpdater updater;
         private MidiManager midiManager;
         private List<string> inputDeviceNames;
         private List<string> outputDeviceNames;
@@ -47,6 +48,10 @@ namespace JayoMidiPlugin
         private Text lastNoteOffValueText;
         private Text lastControlChangeValueText;
 
+        private string currentVersion = "v0.2.0";
+        private string repoName = "jayo-exe/JayoMidiPlugin";
+        private string updateLink = "https://jayo-exe.itch.io/midi-plugin-for-vnyan";
+
         public void Start()
         {
             shouldCopyToClipboard = "";
@@ -65,14 +70,17 @@ namespace JayoMidiPlugin
             Debug.Log($"MIDI Plugin is Awake!");
             _VNyanHelper = new VNyanHelper();
 
+            updater = new VNyanPluginUpdater(repoName, currentVersion, updateLink);
+            updater.OpenUrlRequested += (url) => mainThread.Enqueue(() => { Application.OpenURL(url); });
+
             Debug.Log($"Loading Settings");
             // Load settings
             loadPluginSettings();
+            updater.CheckForUpdates();
 
             Debug.Log($"Beginning Plugin Setup");
             
             mainThread = gameObject.AddComponent<MainThreadDispatcher>();
-            triggerDispatcher = gameObject.AddComponent<VNyanTriggerDispatcher>();
             midiManager = gameObject.AddComponent<MidiManager>();
 
             try
@@ -101,6 +109,12 @@ namespace JayoMidiPlugin
                 //load MIDI Devices list
                 try
                 {
+                    updater.PrepareUpdateUI(
+                        window.transform.Find("Panel/VersionText").gameObject,
+                        window.transform.Find("Panel/UpdateText").gameObject,
+                        window.transform.Find("Panel/UpdateButton").gameObject
+                    );
+
                     Debug.Log($"Loading MIDI Input List");
                     setStatusTitle("Loading MIDI Input List");
                     List<Dropdown.OptionData> inputOptions = buildInputOptionsList();

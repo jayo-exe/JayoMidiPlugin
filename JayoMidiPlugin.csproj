@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -7,11 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>E:\vNyan\VNyan_Data\Managed\Assembly-CSharp.dll</HintPath>
+    <PackageReference Include="Melanchall.DryWetMidi" Version="7.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>E:\VNyan1.4.5\VNyan_Data\Managed\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="UnityEditor">
       <HintPath>E:\Unity\Editor\2020.3.40f1\Editor\Data\Managed\UnityEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>E:\vNyan\VNyan_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>E:\Unity\Editor\2020.3.40f1\Editor\Data\Managed\UnityEngine\UnityEngine.CoreModule.dll</HintPath>
@@ -32,20 +39,12 @@
       <HintPath>E:\Unity\Editor\2020.3.40f1\Editor\Data\Managed\UnityEngine\UnityEngine.UIModule.dll</HintPath>
     </Reference>
     <Reference Include="VNyanInterface">
-      <HintPath>E:\VNyan\VNyan_Data\Managed\VNyanInterface.dll</HintPath>
+      <HintPath>E:\VNyan1.4.5\VNyan_Data\Managed\VNyanInterface.dll</HintPath>
     </Reference>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="dist\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Melanchall.DryWetMidi" Version="7.0.2" />
-  </ItemGroup>
-
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy &quot;$(TargetDir)JayoMidiPlugin.dll&quot; &quot;$(SolutionDir)..\..\..\MidiPlugin\Assets\JayoMidiPlugin\Plugins&quot; /Y" />
+    <Exec Command="copy &quot;$(TargetDir)JayoMidiPlugin.dll&quot; &quot;$(SolutionDir)..\..\..\VNyanPlugins\Assets\JayoMidiPlugin\Plugins&quot; /Y" />
   </Target>
 
 </Project>
