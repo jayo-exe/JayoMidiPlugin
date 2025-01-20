@@ -1,4 +1,4 @@
-﻿#Jayo's MIDI Plugin for VNyan​
+﻿# Jayo's MIDI Plugin for VNyan​
 
 A VNyan Plugin that allows Note On/Off and Control Change messages from your MIDI controller to interact with your VNyan node graphs! Use your MIDI controller as a massive VNyan control panel!
 
