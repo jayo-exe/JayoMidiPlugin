@@ -5,7 +5,6 @@ using UnityEditor;
 using Melanchall.DryWetMidi.Multimedia;
 using Melanchall.DryWetMidi.Core;
 using System.Linq;
-using JayoMidiPlugin.VNyanPluginHelper;
 
 namespace JayoMidiPlugin
 {
@@ -16,23 +15,11 @@ namespace JayoMidiPlugin
         private string midiInput;
         private InputDevice midiInputDevice;
         private JayoMidiPlugin plugin;
-        private VNyanHelper _VNyanHelper;
 
         public void Awake()
         {
-            Debug.Log("Midi Manager Awake!");
-            _VNyanHelper = new VNyanHelper();
+            Logger.LogInfo("Midi Manager Awake!");
             plugin = GetComponent<JayoMidiPlugin>();
-            EditorApplication.playModeStateChanged += ModeChanged;
-        }
-
-        private void ModeChanged(PlayModeStateChange state)
-        {
-            if (state == PlayModeStateChange.ExitingPlayMode)
-            {
-                Debug.Log("Exiting Play Mode");
-                deInitMidi();
-            }
         }
 
         private void OnDestroy()
@@ -57,19 +44,18 @@ namespace JayoMidiPlugin
 
         public bool initMidi(string midiInputName)
         {
-
             try
             {
                 midiInput = midiInputName;
                 midiInputDevice = InputDevice.GetByName(midiInput);
-                Debug.Log($"Loaded Input Device: {midiInputDevice.Name}");
+                Logger.LogInfo($"Loaded Input Device: {midiInputDevice.Name}");
                 midiInputDevice.EventReceived += OnEventReceived;
                 midiInputDevice.StartEventsListening();
                 return true;
             }
             catch (Exception e)
             {
-                Debug.Log($"Couldn't initialize MIDI Controller '{midiInput}': {e.Message}");
+                Logger.LogError($"Couldn't initialize MIDI Controller '{midiInput}': {e.Message}");
                 return false;
             }
         }
@@ -81,12 +67,12 @@ namespace JayoMidiPlugin
                 midiInputDevice.StopEventsListening();
                 midiInputDevice.EventReceived -= OnEventReceived;
                 midiInputDevice.Dispose();
-                Debug.Log($"Disposed of MIDI Controller");
+                Logger.LogInfo($"Disposed of MIDI Controller");
                 return true;
             }
             catch (Exception e)
             {
-                Debug.Log($"Couldn't destroy MIDI Controller '{this.midiInput}': {e.Message}");
+                Logger.LogInfo($"Couldn't destroy MIDI Controller '{this.midiInput}': {e.Message}");
                 return false;
             }
         }
@@ -97,37 +83,27 @@ namespace JayoMidiPlugin
             var Event = e.Event;
             if (Event is NoteOnEvent noteOnEvent)
             {
-                try
-                {
-                    Debug.Log($"A Note was pressed: {noteOnEvent.NoteNumber} , {noteOnEvent.Velocity}");
-                    plugin.setLastNoteOnTrigger($"_xjm_n1_{noteOnEvent.NoteNumber}", noteOnEvent.Velocity);
-                    _VNyanHelper.setVNyanParameterFloat($"_xjm_note_{noteOnEvent.NoteNumber}", noteOnEvent.Velocity);
-                    _VNyanHelper.callTrigger($"_xjm_n1_{noteOnEvent.NoteNumber}", 0, 0, 0, "", "", "");
-                }
-                catch (Exception ex)
-                {
-                    Debug.Log($"Couldn't handle note press: {ex.Message}");
-                }
-                
+                Logger.LogInfo($"A Note was pressed: {noteOnEvent.NoteNumber} , {noteOnEvent.Velocity}");
+                plugin.setLastNoteOnTrigger($"_xjm_n1_{noteOnEvent.NoteNumber}", noteOnEvent.Velocity);
+                VNyanInterface.VNyanInterface.VNyanParameter.setVNyanParameterFloat($"_xjm_note_{noteOnEvent.NoteNumber}", noteOnEvent.Velocity);
+                VNyanInterface.VNyanInterface.VNyanTrigger.callTrigger($"_xjm_n1_{noteOnEvent.NoteNumber}", 0, 0, 0, "", "", "");
+
             }
             if (Event is NoteOffEvent noteOffEvent)
             {
-                Debug.Log($"A Note was released: {noteOffEvent.NoteNumber} , {noteOffEvent.Velocity}");
+                Logger.LogInfo($"A Note was released: {noteOffEvent.NoteNumber} , {noteOffEvent.Velocity}");
                 plugin.setLastNoteOffTrigger($"_xjm_n0_{noteOffEvent.NoteNumber}", noteOffEvent.Velocity);
-                _VNyanHelper.setVNyanParameterFloat($"_xjm_note_{noteOffEvent.NoteNumber}", noteOffEvent.Velocity);
-                _VNyanHelper.callTrigger($"_xjm_n0_{noteOffEvent.NoteNumber}", 0, 0, 0, "", "", "");
+                VNyanInterface.VNyanInterface.VNyanParameter.setVNyanParameterFloat($"_xjm_note_{noteOffEvent.NoteNumber}", noteOffEvent.Velocity);
+                VNyanInterface.VNyanInterface.VNyanTrigger.callTrigger($"_xjm_n0_{noteOffEvent.NoteNumber}", 0, 0, 0, "", "", "");
             }
             if (Event is ControlChangeEvent controlChangeEvent)
             {
-                Debug.Log($"A Control was changed: {controlChangeEvent.ControlNumber} , {controlChangeEvent.ControlValue}");
+                Logger.LogInfo($"A Control was changed: {controlChangeEvent.ControlNumber} , {controlChangeEvent.ControlValue}");
                 plugin.setLastControlChangeTrigger($"_xjm_ct_{controlChangeEvent.ControlNumber}", controlChangeEvent.ControlValue);
-                _VNyanHelper.setVNyanParameterFloat($"_xjm_control_{controlChangeEvent.ControlNumber}", controlChangeEvent.ControlValue);
-                _VNyanHelper.callTrigger($"_xjm_ct_{controlChangeEvent.ControlNumber}", 0, 0, 0, "", "", "");
+                VNyanInterface.VNyanInterface.VNyanParameter.setVNyanParameterFloat($"_xjm_control_{controlChangeEvent.ControlNumber}", controlChangeEvent.ControlValue);
+                VNyanInterface.VNyanInterface.VNyanTrigger.callTrigger($"_xjm_ct_{controlChangeEvent.ControlNumber}", 0, 0, 0, "", "", "");
             }
         }
-
-
-
     }
 }
 

@@ -2,7 +2,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-namespace JayoMidiPlugin.VNyanPluginHelper
+namespace JayoMidiPlugin.Util
 {
     class WindowFocus : MonoBehaviour, IPointerDownHandler
     {

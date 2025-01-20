@@ -1,4 +1,5 @@
-﻿using JetBrains.Annotations;
+﻿using JayoMidiPlugin.Util;
+using JetBrains.Annotations;
 using Melanchall.DryWetMidi.Common;
 using Melanchall.DryWetMidi.Multimedia;
 using System;
@@ -9,7 +10,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using VNyanInterface;
-using JayoMidiPlugin.VNyanPluginHelper;
+using TMPro;
 
 namespace JayoMidiPlugin
 {
@@ -18,9 +19,7 @@ namespace JayoMidiPlugin
         public GameObject windowPrefab;
 
         private GameObject window;
-        private MainThreadDispatcher mainThread;
-        private VNyanHelper _VNyanHelper;
-        private VNyanPluginUpdater updater;
+        private PluginUpdater updater;
         private MidiManager midiManager;
         private List<string> inputDeviceNames;
         private List<string> outputDeviceNames;
@@ -41,14 +40,22 @@ namespace JayoMidiPlugin
         private bool shouldUpdateTriggers;
         private string shouldCopyToClipboard;
 
-        private Text lastNoteOnText;
-        private Text lastNoteOffText;
-        private Text lastControlChangeText;
-        private Text lastNoteOnValueText;
-        private Text lastNoteOffValueText;
-        private Text lastControlChangeValueText;
+        private TMP_Text statusText;
+        private TMP_Text errorText;
+        private TMP_Text lastNoteOnText;
+        private TMP_Text lastNoteOffText;
+        private TMP_Text lastControlChangeText;
+        private TMP_Text lastNoteOnValueText;
+        private TMP_Text lastNoteOffValueText;
+        private TMP_Text lastControlChangeValueText;
+        private TMP_Dropdown inputSelectDropdown;
+        private Button connectButton;
+        private Button disconnectButton;
+        private Button copyNoteOnButton;
+        private Button copyNoteOffButton;
+        private Button copyControlChangeButton;
 
-        private string currentVersion = "v0.2.0";
+        private string currentVersion = "v0.3.0";
         private string repoName = "jayo-exe/JayoMidiPlugin";
         private string updateLink = "https://jayo-exe.itch.io/midi-plugin-for-vnyan";
 
@@ -67,28 +74,27 @@ namespace JayoMidiPlugin
         public void Awake()
         {
             
-            Debug.Log($"MIDI Plugin is Awake!");
-            _VNyanHelper = new VNyanHelper();
+            Logger.LogInfo($"MIDI Plugin is Awake!");
 
-            updater = new VNyanPluginUpdater(repoName, currentVersion, updateLink);
-            updater.OpenUrlRequested += (url) => mainThread.Enqueue(() => { Application.OpenURL(url); });
+            updater = new PluginUpdater(repoName, currentVersion, updateLink);
+            updater.OpenUrlRequested += (url) => MainThreadDispatcher.Enqueue(() => { Application.OpenURL(url); });
 
-            Debug.Log($"Loading Settings");
+            Logger.LogInfo($"Loading Settings");
             // Load settings
             loadPluginSettings();
             updater.CheckForUpdates();
 
-            Debug.Log($"Beginning Plugin Setup");
+            Logger.LogInfo($"Beginning Plugin Setup");
             
-            mainThread = gameObject.AddComponent<MainThreadDispatcher>();
             midiManager = gameObject.AddComponent<MidiManager>();
 
             try
             {
-                window = _VNyanHelper.pluginSetup(this, "Jayo's MIDI Plugin", windowPrefab);
+                VNyanInterface.VNyanInterface.VNyanUI.registerPluginButton("Jayo's MIDI Plugin", this);
+                window = (GameObject)VNyanInterface.VNyanInterface.VNyanUI.instantiateUIPrefab(windowPrefab);
             } catch(Exception e)
             {
-                Debug.Log(e.ToString());
+                Logger.LogError(e.ToString());
             }
             
             // Hide the window by default
@@ -97,12 +103,23 @@ namespace JayoMidiPlugin
                 window.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, 0);
                 window.SetActive(false);
 
-                lastNoteOnText = window.transform.Find("Panel/TriggerList/LastNoteOn").GetComponent<Text>();
-                lastNoteOffText = window.transform.Find("Panel/TriggerList/LastNoteOff").GetComponent<Text>();
-                lastControlChangeText = window.transform.Find("Panel/TriggerList/LastControlChange").GetComponent<Text>();
-                lastNoteOnValueText = window.transform.Find("Panel/TriggerList/LastNoteOnValue").GetComponent<Text>();
-                lastNoteOffValueText = window.transform.Find("Panel/TriggerList/LastNoteOffValue").GetComponent<Text>();
-                lastControlChangeValueText = window.transform.Find("Panel/TriggerList/LastControlChangeValue").GetComponent<Text>();
+                statusText = window.transform.Find("Panel/StatusControls/Status Indicator").GetComponent<TMP_Text>();
+                errorText = window.transform.Find("Panel/StatusControls/Status Error Text").GetComponent<TMP_Text>();
+                lastNoteOnText = window.transform.Find("Panel/TriggerList/LastNoteOn").GetComponent<TMP_Text>();
+                lastNoteOffText = window.transform.Find("Panel/TriggerList/LastNoteOff").GetComponent<TMP_Text>();
+                lastControlChangeText = window.transform.Find("Panel/TriggerList/LastControlChange").GetComponent<TMP_Text>();
+                lastNoteOnValueText = window.transform.Find("Panel/TriggerList/LastNoteOnValue").GetComponent<TMP_Text>();
+                lastNoteOffValueText = window.transform.Find("Panel/TriggerList/LastNoteOffValue").GetComponent<TMP_Text>();
+                lastControlChangeValueText = window.transform.Find("Panel/TriggerList/LastControlChangeValue").GetComponent<TMP_Text>();
+                
+                inputSelectDropdown = window.transform.Find("Panel/Midi Source/Source/Source Dropdown").GetComponent<TMP_Dropdown>();
+                connectButton = window.transform.Find("Panel/Midi Source/ConnectButton").GetComponent<Button>();
+                disconnectButton = window.transform.Find("Panel/Midi Source/DisconnectButton").GetComponent<Button>();
+
+                copyNoteOnButton = window.transform.Find("Panel/TriggerList/CopyNoteOnBtn").GetComponent<Button>();
+                copyNoteOffButton = window.transform.Find("Panel/TriggerList/CopyNoteOffBtn").GetComponent<Button>();
+                copyControlChangeButton = window.transform.Find("Panel/TriggerList/CopyControlChangeBtn").GetComponent<Button>();
+
 
                 setStatusTitle("Initializing");
                 setStatusMessage("");
@@ -110,35 +127,33 @@ namespace JayoMidiPlugin
                 try
                 {
                     updater.PrepareUpdateUI(
-                        window.transform.Find("Panel/VersionText").gameObject,
-                        window.transform.Find("Panel/UpdateText").gameObject,
-                        window.transform.Find("Panel/UpdateButton").gameObject
+                        window.transform.Find("Panel/UpdateRow/VersionText").gameObject,
+                        window.transform.Find("Panel/UpdateRow/UpdateText").gameObject,
+                        window.transform.Find("Panel/UpdateRow/UpdateButton").gameObject
                     );
 
                     Debug.Log($"Loading MIDI Input List");
                     setStatusTitle("Loading MIDI Input List");
-                    List<Dropdown.OptionData> inputOptions = buildInputOptionsList();
-                    Dropdown InputSelectDropdown = window.transform.Find("Panel/Midi Source/Source Dropdown").GetComponent<Dropdown>();
-
-                    InputSelectDropdown?.ClearOptions();
-                    InputSelectDropdown?.AddOptions(inputOptions);
-
-                    InputSelectDropdown?.onValueChanged.AddListener((v) => { Debug.Log($"Value changed: {v}; {inputDeviceNames[v]}");  midiInputDevice = inputDeviceNames[v]; });
-                    InputSelectDropdown?.SetValueWithoutNotify(inputDeviceNames.IndexOf(midiInputDevice));
-
+                    Logger.LogInfo("A");
+                    inputSelectDropdown.ClearOptions();
+                    inputSelectDropdown.AddOptions(buildInputOptionsList());
+                    Logger.LogInfo("B");
+                    inputSelectDropdown.onValueChanged.AddListener((v) => { Debug.Log($"Value changed: {v}; {inputDeviceNames[v]}");  midiInputDevice = inputDeviceNames[v]; });
+                    inputSelectDropdown.SetValueWithoutNotify(inputDeviceNames.IndexOf(midiInputDevice));
+                    Logger.LogInfo("C");
                     window.transform.Find("Panel/TitleBar/CloseButton").GetComponent<Button>().onClick.AddListener(() => { closePluginWindow(); });
-                    window.transform.Find("Panel/StatusControls/ConnectButton").GetComponent<Button>().onClick.AddListener(() => { connectToMidiDevice(); });
-                    window.transform.Find("Panel/StatusControls/DisconnectButton").GetComponent<Button>().onClick.AddListener(() => { DisconnectFromMidiDevice(); });
-                    window.transform.Find("Panel/TriggerList/CopyNoteOnBtn").GetComponent<Button>().onClick.AddListener(() => { copyLastNoteOnTrigger(); });
-                    window.transform.Find("Panel/TriggerList/CopyNoteOffBtn").GetComponent<Button>().onClick.AddListener(() => { copyLastNoteOffTrigger(); });
-                    window.transform.Find("Panel/TriggerList/CopyControlChangeBtn").GetComponent<Button>().onClick.AddListener(() => { copyLastControlChangeTrigger(); });
+                    connectButton.onClick.AddListener(() => { connectToMidiDevice(); });
+                    disconnectButton.onClick.AddListener(() => { DisconnectFromMidiDevice(); });
+                    copyNoteOnButton.onClick.AddListener(() => { copyLastNoteOnTrigger(); });
+                    copyNoteOffButton.onClick.AddListener(() => { copyLastNoteOffTrigger(); });
+                    copyControlChangeButton.onClick.AddListener(() => { copyLastControlChangeTrigger(); });
                 }
                 catch (Exception e)
                 {
-                    Debug.Log($"Couldn't initialize MIDI Input List: {e.Message}");
+                    Logger.LogError($"Couldn't initialize MIDI Input List: {e.Message}");
                     setStatusTitle("Couldn't initialize MIDI Input List");
                     setStatusMessage($"initError: {e.Message}\n{e.StackTrace}");
-                    Debug.Log(e.ToString());
+                    Logger.LogError(e.ToString());
                 }
 
                 try
@@ -147,7 +162,7 @@ namespace JayoMidiPlugin
                 }
                 catch (Exception e)
                 {
-                    Debug.Log($"Couldn't initialize MIDI Input Connection: {e.Message}");
+                    Logger.LogError($"Couldn't initialize MIDI Input Connection: {e.Message}");
                     setStatusTitle("Couldn't initialize MIDI Input Connection");
                     setStatusMessage($"connError: {e.Message}\n{e.StackTrace}");
                     GUIUtility.systemCopyBuffer = e.StackTrace;
@@ -176,40 +191,40 @@ namespace JayoMidiPlugin
 
         }
 
-        private List<Dropdown.OptionData> buildInputOptionsList()
+        private List<TMP_Dropdown.OptionData> buildInputOptionsList()
         {
-            Debug.Log($"Checking for Input Devices...");
+            Logger.LogInfo($"Checking for Input Devices...");
             List<InputDevice> inputDevices = listInputDevices();
-            List<Dropdown.OptionData> optionsList = new List<Dropdown.OptionData>();
+            List<TMP_Dropdown.OptionData> optionsList = [];
 
-            inputDeviceNames = new List<string>();
+            inputDeviceNames = [];
             
             inputDeviceNames.Add("<None>");
-            optionsList.Add(new Dropdown.OptionData("<None>"));
+            optionsList.Add(new TMP_Dropdown.OptionData("<None>"));
 
             foreach (InputDevice device in inputDevices)
             {
                 inputDeviceNames.Add(device.Name);
-                optionsList.Add(new Dropdown.OptionData(device.Name));
+                optionsList.Add(new TMP_Dropdown.OptionData(device.Name));
             }
 
             return optionsList;
         }
 
-        private List<Dropdown.OptionData> buildOutputOptionsList()
+        private List<TMP_Dropdown.OptionData> buildOutputOptionsList()
         {
             List<OutputDevice> outputDevices = listOutputDevices();
-            List<Dropdown.OptionData> optionsList = new List<Dropdown.OptionData>();
+            List<TMP_Dropdown.OptionData> optionsList = [];
 
-            outputDeviceNames = new List<string>();
+            outputDeviceNames = [];
             
             outputDeviceNames.Add("<None>");
-            optionsList.Add(new Dropdown.OptionData("<None>"));
+            optionsList.Add(new TMP_Dropdown.OptionData("<None>"));
 
             foreach (OutputDevice device in outputDevices)
             {
                 outputDeviceNames.Add(device.Name);
-                optionsList.Add(new Dropdown.OptionData(device.Name));
+                optionsList.Add(new TMP_Dropdown.OptionData(device.Name));
             }
 
             return optionsList;
@@ -219,7 +234,7 @@ namespace JayoMidiPlugin
         private void loadPluginSettings()
         {
             // Get settings in dictionary
-            Dictionary<string, string> settings = _VNyanHelper.loadPluginSettingsData("JayoMidiPlugin.cfg");
+            Dictionary<string, string> settings = VNyanInterface.VNyanInterface.VNyanSettings.loadSettings("JayoMidiPlugin.cfg");
             if (settings != null)
             {
                 // Read string value
@@ -248,13 +263,12 @@ namespace JayoMidiPlugin
             settings["MidiInputDevice"] = midiInputDevice;
             settings["MidiOutputDevice"] = midiOutputDevice;
 
-            _VNyanHelper.savePluginSettingsData("JayoMidiPlugin.cfg", settings);
+            VNyanInterface.VNyanInterface.VNyanSettings.saveSettings("JayoMidiPlugin.cfg", settings);
         }
 
         public void pluginButtonClicked()
         {
             // Flip the visibility of the window when plugin window button is clicked
-            Debug.Log("plugin button clicked");
             if (window != null)
             {
                 window.SetActive(!window.activeSelf);
@@ -266,14 +280,12 @@ namespace JayoMidiPlugin
 
         private void setStatusTitle(string titleText)
         {
-            Text StatusTitle = window.transform.Find("Panel/StatusControls/Status Indicator").GetComponent<Text>();
-            StatusTitle.text = titleText;
+            statusText.text = titleText;
         }
 
         private void setStatusMessage(string messageText)
         {
-            Text StatusMessage = window.transform.Find("Panel/StatusControls/Status Error Text").GetComponent<Text>();
-            StatusMessage.text = messageText;
+            errorText.text = messageText;
         }
 
         public List<InputDevice> listInputDevices()
@@ -293,7 +305,7 @@ namespace JayoMidiPlugin
 
         public void connectToMidiDevice()
         {
-            Debug.Log($"Initializing MIDI Connection");
+            Logger.LogInfo($"Initializing MIDI Connection");
             if(midiInputDevice == "<None>" || midiInputDevice == "" || midiInputDevice == null)
             {
                 setStatusTitle("Select a MIDI Device");
@@ -303,9 +315,9 @@ namespace JayoMidiPlugin
             setStatusTitle("Initializing MIDI Connection");
             if (GetComponent<MidiManager>().initMidi(midiInputDevice))
             {
-                window.transform.Find("Panel/StatusControls/ConnectButton").gameObject.SetActive(false);
-                window.transform.Find("Panel/StatusControls/DisconnectButton").gameObject.SetActive(true);
-                window.transform.Find("Panel/Midi Source/Source Dropdown").GetComponent<Dropdown>().interactable = false;
+                connectButton.gameObject.SetActive(false);
+                disconnectButton.gameObject.SetActive(true);
+                inputSelectDropdown.interactable = false;
                 setStatusTitle("Midi Connected and Listening!");
                 setStatusMessage("");
             } else
@@ -319,9 +331,9 @@ namespace JayoMidiPlugin
             setStatusTitle("Disconnecting MIDI Connection");
             if (GetComponent<MidiManager>().deInitMidi())
             {
-                window.transform.Find("Panel/StatusControls/ConnectButton").gameObject.SetActive(true);
-                window.transform.Find("Panel/StatusControls/DisconnectButton").gameObject.SetActive(false);
-                window.transform.Find("Panel/Midi Source/Source Dropdown").GetComponent<Dropdown>().interactable = true;
+                connectButton.gameObject.SetActive(true);
+                disconnectButton.gameObject.SetActive(false);
+                inputSelectDropdown.interactable = true;
                 setStatusTitle("Midi Device Disconnected");
             }
             else

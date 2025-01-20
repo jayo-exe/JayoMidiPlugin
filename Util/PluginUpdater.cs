@@ -1,19 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.IO;
 using System.Net;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace JayoMidiPlugin.VNyanPluginHelper
+namespace JayoMidiPlugin.Util
 {
-    class VNyanPluginUpdater
+    class PluginUpdater
     {
         public event Action<string> OpenUrlRequested;
-        
+
         private string repoName;
         private string currentVersion;
         private string updateLink;
@@ -21,7 +18,7 @@ namespace JayoMidiPlugin.VNyanPluginHelper
 
         private bool updateAvailable = false;
 
-        public VNyanPluginUpdater(string repoName, string currentVersion, string updateLink)
+        public PluginUpdater(string repoName, string currentVersion, string updateLink)
         {
             this.repoName = repoName;
             this.currentVersion = currentVersion;
@@ -43,7 +40,7 @@ namespace JayoMidiPlugin.VNyanPluginHelper
             }
             catch (Exception e)
             {
-                Debug.Log($"Couldn't check for updates: {e.Message}");
+                Logger.LogInfo($"Couldn't check for updates: {e.Message}");
             }
         }
 
