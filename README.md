@@ -12,7 +12,7 @@ A VNyan Plugin that allows Note On/Off and Control Change messages from your MID
 
 ## Installation
 1. Grab the ZIP file from the [latest release](https://github.com/jayo-exe/JayoMidiPlugin/releases/latest) of the plugin.
-2. Extract the contents of the ZIP file _directly into your VNyan installation folder_.  This will add the plugin files to yor VNyan `Items\Assemblies` folder, as well as copying a managed MIKDI library to `VNyan_Data/Managed`.
+2. Extract the contents of the ZIP file _directly into your VNyan installation folder_.  This will add the plugin files to yor VNyan `Items\Assemblies` folder, as well as copying a managed MIDI library to `VNyan_Data/Managed`.
 4. Open the VNyan Settings window, go to the "Misc" section, and ensure that **Allow 3rd Party Mods/Plugins** is enabled. This is required for this plugin  (or any plugin) to function correctly, so if you've already got other plugins installed you can probably skip this step.
 5. Restart VNyan to allow the plugin and libraries to be loaded
 6. One VNyan loads, confirm that a button for the plugin now exists in your Plugins window!
