@@ -55,7 +55,7 @@ namespace JayoMidiPlugin
         private Button copyNoteOffButton;
         private Button copyControlChangeButton;
 
-        private string currentVersion = "v0.3.0";
+        private string currentVersion = "v0.3.1";
         private string repoName = "jayo-exe/JayoMidiPlugin";
         private string updateLink = "https://jayo-exe.itch.io/midi-plugin-for-vnyan";
 
